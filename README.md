@@ -22,7 +22,8 @@ I do not recommend using this as an aimbot. If you are looking for that, look fo
 ## Demo
 | | |
 |---------------------------|-------|
-| Moving Targets | ![test](demos/moving.mp4) |
+| Stationary Targets | ![stationary](demos/stationary.gif) |
+| Moving Targets | ![moving](demos/moving.gif) |
 | | |
 ---
 
