@@ -12,8 +12,8 @@ The agent uses screenshots only, detects enemies in the game frame, and learns m
 ## Demo
 | | |
 |---------------------------|-------|
-| Stationary Targets | [stationary](https://private-user-images.githubusercontent.com/49131143/462860001-a9778091-6546-42d3-a44d-74c1334d4042.mp4?jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3NTE3NzE4ODIsIm5iZiI6MTc1MTc3MTU4MiwicGF0aCI6Ii80OTEzMTE0My80NjI4NjAwMDEtYTk3NzgwOTEtNjU0Ni00MmQzLWE0NGQtNzRjMTMzNGQ0MDQyLm1wND9YLUFtei1BbGdvcml0aG09QVdTNC1ITUFDLVNIQTI1NiZYLUFtei1DcmVkZW50aWFsPUFLSUFWQ09EWUxTQTUzUFFLNFpBJTJGMjAyNTA3MDYlMkZ1cy1lYXN0LTElMkZzMyUyRmF3czRfcmVxdWVzdCZYLUFtei1EYXRlPTIwMjUwNzA2VDAzMTMwMlomWC1BbXotRXhwaXJlcz0zMDAmWC1BbXotU2lnbmF0dXJlPTNhZTA1OWM1NjUxYmYxODNjOTE0MGJmNmJjMDBkOGQ4YzMxMzg3NmM4NzM5Y2M2NzhmNzJhNjViMjE4NGE5OTQmWC1BbXotU2lnbmVkSGVhZGVycz1ob3N0In0.MOzLNwbgvk7fdnlZSU9gDeA8jDnFSkH9i_m10CmJkbU) |
-| Moving Targets | [moving](https://private-user-images.githubusercontent.com/49131143/462860001-a9778091-6546-42d3-a44d-74c1334d4042.mp4?jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3NTE3NzE4ODIsIm5iZiI6MTc1MTc3MTU4MiwicGF0aCI6Ii80OTEzMTE0My80NjI4NjAwMDEtYTk3NzgwOTEtNjU0Ni00MmQzLWE0NGQtNzRjMTMzNGQ0MDQyLm1wND9YLUFtei1BbGdvcml0aG09QVdTNC1ITUFDLVNIQTI1NiZYLUFtei1DcmVkZW50aWFsPUFLSUFWQ09EWUxTQTUzUFFLNFpBJTJGMjAyNTA3MDYlMkZ1cy1lYXN0LTElMkZzMyUyRmF3czRfcmVxdWVzdCZYLUFtei1EYXRlPTIwMjUwNzA2VDAzMTMwMlomWC1BbXotRXhwaXJlcz0zMDAmWC1BbXotU2lnbmF0dXJlPTNhZTA1OWM1NjUxYmYxODNjOTE0MGJmNmJjMDBkOGQ4YzMxMzg3NmM4NzM5Y2M2NzhmNzJhNjViMjE4NGE5OTQmWC1BbXotU2lnbmVkSGVhZGVycz1ob3N0In0.MOzLNwbgvk7fdnlZSU9gDeA8jDnFSkH9i_m10CmJkbU) |
+| Stationary Targets | [stationary](demos/stationary.gif) |
+| Moving Targets | <video src="demos/moving.gif"></video> |
 | | |
 
 ---
