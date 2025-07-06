@@ -12,8 +12,8 @@ The agent uses screenshots only, detects enemies in the game frame, and learns m
 ## Demo
 | | |
 |---------------------------|-------|
-| Stationary Targets | <video src="./demos/stationary.mp4"></video> |
-| Moving Targets | <video src="./demos/moving.mp4"></video> |
+| Stationary Targets | [stationary](demos/stationary.mp4) |
+| Moving Targets | [moving](demos/moving.mp4) |
 | | |
 
 ---
