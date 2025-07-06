@@ -1,2 +1,6 @@
 __pycache__/
 myenv/
+logs/
+yolo11m.engine
+yolo11m.onnx
+yolo11m.pt
