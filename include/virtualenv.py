@@ -125,7 +125,7 @@ class VirtualEnv(gym.Env):
         # Print what happened in the last step of the episode
         if done or truncated:
             pass
-            print(f"Input = {self.detectionDx:.3f}, {self.detectionDy:.3f}, Target = {target}, Movement = {pixelMovement}, Shoot = {shootProbability:.2f}, Distance = {distance:.3f}, closeness = {self.closenessTolerance:.3f}, Reward = {reward:3f}, Steps Taken = {self.numSteps}, Enemies Killed = {12 - currentAlive}")
+            print(f"Target = {target}, Movement = {pixelMovement}, Shoot = {shootProbability:.2f}, Distance = {distance:.3f}, closeness = {self.closenessTolerance:.3f}, Reward = {reward:3f}, Steps Taken = {self.numSteps}, Enemies Killed = {12 - currentAlive}")
 
 
         detectionDx, detectionDy, isValid = self._random_target()

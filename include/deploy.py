@@ -64,11 +64,13 @@ def deployAgent(agent, detectionModel):
                     bb0Center = np.asarray([bb0[0] + bb0[2] / 2, bb0[1] + bb0[3] / 2])
                     bb1Center = np.asarray([bb1[0] + bb1[2] / 2, bb1[1] + bb1[3] / 2])
 
-                    needsTracker = np.hypot(*(bb0Center - bb1Center)) > 2.8
-
+                    needsTracker = np.hypot(*(bb0Center - bb1Center)) > 5
                else:
                     needsTracker = False
                
+
+               print(needsTracker)
+
                if needsTracker:
                     
                     if not ok:
@@ -88,8 +90,6 @@ def deployAgent(agent, detectionModel):
                     # Normaliza no intervalo [-1, 1]
                     detectionDy = (detectionDy + bb1[3] * 0.12)  / gameWindowHeight
                     detectionDy = detectionDy * 2 - 1
-
-                    end = time.perf_counter()
 
           
           print(metrics)          
@@ -113,4 +113,4 @@ def deployAgent(agent, detectionModel):
           currentY  += actionDy * 0.41464621474517566
           currentY  = np.clip(currentY, -1, 1)
 
-          time.sleep(0.12)
+          time.sleep(0.13)
