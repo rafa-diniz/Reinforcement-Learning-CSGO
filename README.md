@@ -1,7 +1,7 @@
 # 🎯 Deep Reinforcement Learning for Counter-Strike: Global Offensive
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
+[![Python](https://img.shields.io/badge/python-3.12.10-blue.svg)](https://www.python.org/)
 
 **TL;DR**
 
@@ -9,11 +9,12 @@ This repo contains my code and trained weights for the Deep Reinforcement Learni
 The pipeline captures game frames, detects valid targets and learns mouse movements + "shoot" via PPO. On the community map *Aim Botz* it averages **93.6 ± 2.8 kills-per-minute (KPM) on stationary targets and 39.2 ± 1.7 KPM on moving targets** - roughly 2× faster than human players (Master Guardian I - Dintinguished Master Guardian rank).
 
 ## Technical Info
-Teaching a Machine Learning network to aim in a 3D game can be challenging because games often hide the settings that were used for creating the in-game camera; Knowing these settings can allow the player to map every pixel in a game frame to their corresponding position in the 3D scene, "undoing" the 3D -> 2D projection that happens in 3D games. Doing this can help create a Machine Learning network that can theoretically aim in any 3D game.
+In operating systems, cursor movement is tracked in "Mouse Units", which correspond exactly to screen pixels when interacting with a flat 2D interface - web browsers, for example. In 3D games, however, the scene is rendered in three dimensions and then projected onto a 2D plane, with said projection being shaped by camera parameters such as horizontal/vertical FOV, focal distance, and aspect ratio (4:3, 16:9, 21:9, etc.). As a result, moving the mouse 100 units in a 3D game won't necessarily move the on-screen crosshair by 100 pixels, because the projection math has to be “undone,” and that can only be done perfectly if the exact camera settings are known.
 
-Sadly, using Supervised Learning for this task is very challenging because commercial games rarely expose the in-engine settings for the game camera. Without the exact values for focal distance, yaw/pitch acceleration and horizontal/vertical FOV, it is impossible to set up a Supervised Learning training loop that undoes the 3D -> 2D projection.
+Sadly, using Supervised Learning for this task is very challenging because commercial games rarely expose the in-engine settings for the game camera. Without the exact intrinsic camera settings it is impossible to set up a Supervised Learning training loop that undoes the 3D -> 2D projection.
 
-This is, however, a great use case for Deep Reinforcement Learning. DRL algorithms learn from multiple experiences, and can be taught to approximate these values by using a reliable metric, such as a fixed target. This is the main idea behind my DRL agent - using screen capture and fixed targets inside Counter-Strike to approximate the 2D -> 3D counter-projection function. By training for thousands of steps with the appropriate reward function, the DRL network can eventually learn to aim in Counter-Strike.
+This is, however, a great use case for Deep Reinforcement Learning. DRL algorithms learn from multiple experiences, and can be taught to approximate these values by using a reliable metric, such as a fixed target. This is the main idea behind my DRL agent - using screen capture and fixed targets inside Counter-Strike to approximate the 2D -> 3D counter-projection function. By training the agent with the appropriate reward function, the DRL network can eventually learn to aim in Counter-Strike.
+
 
 ## Disclaimer
 I do not recommend using this as an aimbot. If you are looking for that, look for "YOLO Aimbot" or similar on GitHub and you'll find plenty of such projects. This one is a proof of concept for how Reinforcement Learning can be combined with Computer Vision to teach RL agents to aim in 3D games :P
@@ -32,6 +33,7 @@ I do not recommend using this as an aimbot. If you are looking for that, look fo
 |  |  |
 |------|---------------|
 | **Plug-and-play PPO agent** | Can theoretically be used to teach aiming mechanics in any 3D game |
+| **State of the Art** | Uses Proximal Policy Optimization, ultra-lightweight Visual Transformers and one-shot detection models.
 | **Vision-only pipeline** | No game memory access -> portable & encourages fair-play |
 | **Two-stage training** | 2M steps in a **VirtualEnv** for speed, then 100k steps in the real game to fine-tune |
 | **Frame-based Object detection** | Fast head-box detection on each frame |
@@ -61,3 +63,41 @@ python exportengine.py
 # If loading the trained weights, make sure to use the same game settings as me - the weights learned the 2D -> 3D mapping for my game settings; if you want to use different game settings, you'll have to train the agent from scratch. My settings: windowed, 1920×1080, FOV 90, mouse sentivity 1.0, mouse yaw and mouse pitch = 0.022, disable raw_input in mouse settings)
 python main.py
 ```
+
+## ⚙️ Design
+
+The general architecture has two main components: A Computer Vision pipeline (Object Detection + Optical Character Recognition (OCR) + an optional ViT Tracker), and a Proximal Policy Optimization (PPO) component. 
+
+![architecture](demos/architecture-tracker.png)
+
+The Computer Vision component is responsible for extracting information from the environment, such as the positions of enemies, the velocity of a target and registering successful kills. All this information is used to evaluate the PPO network's actions and drive it towards the desired behavior.
+
+The reward function is simple as it only contains three components, but it still proved itself to be extremely powerful at teaching the agent the intended behavior.
+
+The Distance Penalty term penalizes the agent for aiming the crosshair away from the target with the $-\mu$. In case the agent picks a mouse movement that moves the crosshair so much that the target is no longer in the frame, a -0.6 fixed reward is discounted.
+
+The Kill Bonus rewards the agent for getting kills.
+
+The View Angle Penalty penalizes the agent for aiming at the ground or at the sky and encourages it to look forward.
+
+The full reward function is: 
+
+$$
+\mathcal{R} =
+\underbrace{
+  \begin{cases}
+    -\mu, & \text{if detection is valid and target was not lost by tracker} \\
+    -0.6, & \text{if detection is valid and target was lost by tracker} \\
+    0,    & \text{if detection is not valid}
+  \end{cases}
+}_{\text{Distance Penalty}}
+\;+\;
+\underbrace{2.0 \cdot (\text{Number of Kills})}_{\text{Kill Bonus}}
+\;+\;
+\underbrace{
+  \begin{cases}
+    -0.6,             & \text{if }abs(\text{Current Y}) > 0.85 \\ 
+    0,                & \text{otherwise}
+  \end{cases}
+}_{\text{View Angle Penalty}}
+$$
