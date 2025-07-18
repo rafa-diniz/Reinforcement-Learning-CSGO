@@ -13,9 +13,28 @@ def readBotsAlive(frame, reader, botsAliveHudCoords):
     return nAlive
 
 
-def detectTargets(frame, detectionModel):
+def detectTargets(frame, frame2, detectionModel):
+    # TODO trocar por um modelo detection.track que recebe dois frames.
+
+    from ultralytics import YOLO
+    detectionModel = YOLO("yolo11m.pt")
+    import time
+    print("AGORA!")
+    a = time.perf_counter()
+    frame = frame[:,:,::-1]
+    frame2 = frame2[:,:,::-1]
+    
+    results = detectionModel.track([frame, frame2], classes=[0], tracker="custom.yaml", save=False, verbose=False,device="cuda", imgsz=864, conf=0.4)  # Tracking with custom tracker
+    b = time.perf_counter()
+    print(f"{(b-a)*1000}ms")
+    #for r in results:
+    #    r.show()
+    
+    raise Exception
     # Run object detection on the received frame to detect bot positions, measured in pixels
     results   = detectionModel.predict(frame, classes=[0], save=False, verbose=False, device="cuda", imgsz=864, conf=0.4)
+    
+    # Maybe optimize later? This really isn't the bottleneck in the pipeline, so... yeah.
     positions = []
     for r in results:
         r = r.cpu()
@@ -26,8 +45,6 @@ def detectTargets(frame, detectionModel):
             
             positions.append((x0, y0, w, h))
     
-    positions = np.asarray(positions)
-
     return positions
 
 
@@ -51,8 +68,8 @@ def normalizeBotPositions(positions, gameWindowWidth, gameWindowHeight):
 
 
 
-def selectTarget(frame, detectionModel, gameWindowWidth, gameWindowHeight):
-    positions     = detectTargets(frame, detectionModel)
+def selectTarget(frame, frame2, detectionModel, gameWindowWidth, gameWindowHeight):
+    positions     = detectTargets(frame, frame2, detectionModel)
     headPositions = normalizeBotPositions(positions, gameWindowWidth, gameWindowHeight)
 
     # Calculate the eucledian distance from the center of the screen (0,0) to each of the positions
@@ -111,7 +128,7 @@ def countsToPixels(cnt_x, cnt_y,
                    gameWindowWidth, gameWindowHeight,
                    sens=1.0, m_yaw=0.022, m_pitch=0.022,
                    return_normalised=False):
-    """Raw mouse counts → (dx, dy) in pixels (centre-origin).
+    """Raw mouse counts -> (dx, dy) in pixels (centre-origin).
        If return_normalised=True it also returns (dxNorm, dyNorm)."""
 
     BASE_H4_3 = 90

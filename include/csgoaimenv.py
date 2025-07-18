@@ -51,7 +51,7 @@ class CSGOAimEnv(gym.Env):
 
         # These weird values indicate where we can find the number of bots alive in the HUD, relative to the screen.
         # It varies from resolution to resolution, so doing it this way makes it work
-        # automatically for 480p, 720p, 900p, 1080p, etc etc.
+        # automatically for 480p, 720p, 900p, 1080p, etc.
         self.botsAliveHudCoords = [
             int(0.4500078 * self.gameWindowWidth), int(0.0027803 * self.gameWindowHeight),
             int(0.4758190 * self.gameWindowWidth), int(0.0417006 * self.gameWindowHeight)

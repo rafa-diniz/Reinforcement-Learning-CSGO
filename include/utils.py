@@ -3,6 +3,8 @@ import win32api
 import win32con
 import win32gui
 
+import numpy as np
+
 
 def getCSGOWindowDimensions():
     handle = win32gui.FindWindow(None, "Counter-Strike: Global Offensive - Direct3D 9")
@@ -43,7 +45,7 @@ def moveMouse(dxMouseUnits, dyMouseUnits):
 
 def leftClick():
     win32api.mouse_event(win32con.MOUSEEVENTF_LEFTDOWN,0,0)
-    time.sleep(0.1)
+    time.sleep(0.05)
     win32api.mouse_event(win32con.MOUSEEVENTF_LEFTUP,0,0)
 
 
@@ -57,3 +59,31 @@ def multistepSchedule(progress_remaining: float) -> float:
         return 1e-4
     else:
         return 7e-5
+
+
+
+def xywh_to_xyxy(box):
+    x, y, w, h = box
+
+    x1, y1 = x, y
+    x2, y2 = x1 + w, y1 + h
+    return np.array([x1, y1, x2, y2], dtype=float)
+
+
+def iou_xywh(box_a, box_b):
+    x1a, y1a, x2a, y2a = xywh_to_xyxy(box_a)
+    x1b, y1b, x2b, y2b = xywh_to_xyxy(box_b)
+
+    # intersection
+    xi1, yi1 = max(x1a, x1b), max(y1a, y1b)
+    xi2, yi2 = min(x2a, x2b), min(y2a, y2b)
+    inter_w, inter_h = max(0, xi2 - xi1), max(0, yi2 - yi1)
+    inter_area = inter_w * inter_h
+
+    # areas
+    area_a = (x2a - x1a) * (y2a - y1a)
+    area_b = (x2b - x1b) * (y2b - y1b)
+
+    # IoU
+    union = area_a + area_b - inter_area + 1e-6  # tiny eps to avoid /0
+    return inter_area / union
