@@ -13,77 +13,66 @@ def readBotsAlive(frame, reader, botsAliveHudCoords):
     return nAlive
 
 
-def detectTargets(frame, frame2, detectionModel):
-    # TODO trocar por um modelo detection.track que recebe dois frames.
-
-    from ultralytics import YOLO
-    detectionModel = YOLO("yolo11m.pt")
-    import time
-    print("AGORA!")
-    a = time.perf_counter()
-    frame = frame[:,:,::-1]
-    frame2 = frame2[:,:,::-1]
-    
-    results = detectionModel.track([frame, frame2], classes=[0], tracker="custom.yaml", save=False, verbose=False,device="cuda", imgsz=864, conf=0.4)  # Tracking with custom tracker
-    b = time.perf_counter()
-    print(f"{(b-a)*1000}ms")
-    #for r in results:
-    #    r.show()
-    
-    raise Exception
+def detectTargets(frame: np.typing.NDArray, frame2: np.typing.NDArray, detectionModel) -> np.typing.NDArray:
     # Run object detection on the received frame to detect bot positions, measured in pixels
-    results   = detectionModel.predict(frame, classes=[0], save=False, verbose=False, device="cuda", imgsz=864, conf=0.4)
+    results       = detectionModel.predict([frame, frame2], classes=[0], save=False, verbose=False, device="cuda", imgsz=864, conf=0.4)
+
+    boundingBoxesFrame1         = results[0].boxes.xywh.cpu().numpy()
+    boundingBoxesFrame1[..., 0] = boundingBoxesFrame1[..., 0] - (boundingBoxesFrame1[..., 2] / 2)
+    boundingBoxesFrame1[..., 1] = boundingBoxesFrame1[..., 1] - (boundingBoxesFrame1[..., 3] / 2)
     
-    # Maybe optimize later? This really isn't the bottleneck in the pipeline, so... yeah.
-    positions = []
-    for r in results:
-        r = r.cpu()
-        for box in r.boxes.xywh:
-            x0, y0, w, h = box
-            x0 = x0 - w / 2
-            y0 = y0 - h / 2
-            
-            positions.append((x0, y0, w, h))
-    
-    return positions
+    boundingBoxesFrame2         = results[1].boxes.xywh.cpu().numpy()
+    boundingBoxesFrame2[..., 0] = boundingBoxesFrame2[..., 0] - (boundingBoxesFrame2[..., 2] / 2)
+    boundingBoxesFrame2[..., 1] = boundingBoxesFrame2[..., 1] - (boundingBoxesFrame2[..., 3] / 2)
+
+    return boundingBoxesFrame1, boundingBoxesFrame2
 
 
-
-def normalizeBotPositions(positions, gameWindowWidth, gameWindowHeight):
-    positionsNormalized = []    
-
+def getHeadPositions(boundingBoxes, gameWindowWidth, gameWindowHeight):
     # The positions with bots are normalized in the -1, 1 range. -1 means the bot is on the left edge of the
     # the screen, and 1 means the bot is on the right edge of the screen.
-    for x, y, w, h in positions:
-        xNorm = (x + w * 0.50)  / gameWindowWidth  # x + w * 0.55 moves the crosshair to the middle of the bounding box, adjusted just a bit to the right
-        yNorm = (y + h * 0.12)  / gameWindowHeight # y + h * 0.12 because this puts the aim right on top of the bot's head. Headshots = good.
+    headPositions = np.empty((boundingBoxes.shape[0], 3), dtype=np.float32)
 
-        xNorm = xNorm * 2 - 1
-        yNorm = yNorm * 2 - 1
-        positionsNormalized.append([xNorm, yNorm, 1.0])
+    # Compute head positions
+    headPositions[..., 0] = (boundingBoxes[..., 0] + boundingBoxes[..., 2] * 0.50) / gameWindowWidth # x + w * 0.50 moves the crosshair to the middle of the bounding box, adjusted just a bit to the right
+    headPositions[..., 1] = (boundingBoxes[..., 1] + boundingBoxes[..., 3] * 0.12) / gameWindowHeight # y + h * 0.12 because this puts the aim right on top of the bot's head. Headshots = good.
 
-    positionsNormalized = np.asarray(positionsNormalized)
+    # Map to [-1, 1]
+    headPositions[..., :2] = headPositions[..., :2] * 2.0 - 1.0
 
-    return positionsNormalized
+    # Add isValid flag
+    headPositions[..., 2] = 1.0
 
+    return headPositions
+
+
+def findClosestTarget(headPositions):
+    # Calculate the eucledian distance from the center of the screen (0,0) to each of the head positions
+    dists = [ np.hypot(x, y) for x, y, _ in headPositions ]
+
+    # Get the bot with the shortest distance and return its bounding box
+    return headPositions[int(np.argmin(dists))]
 
 
 def selectTarget(frame, frame2, detectionModel, gameWindowWidth, gameWindowHeight):
-    positions     = detectTargets(frame, frame2, detectionModel)
-    headPositions = normalizeBotPositions(positions, gameWindowWidth, gameWindowHeight)
-
-    # Calculate the eucledian distance from the center of the screen (0,0) to each of the positions
-    dists = [ np.hypot(x, y) for x, y, _ in headPositions ]
+    boundingBoxesFrame1, boundingBoxesFrame2 = detectTargets(frame, frame2, detectionModel)
     
-    # Get the bot with the shortest distance and return it
-    if dists:
-        idx     = int(np.argmin(dists))
+    # If there's at least one detection in each frame
+    if  boundingBoxesFrame1.shape[0] > 0 \
+    and boundingBoxesFrame2.shape[0] > 0:
+    
+        headPositionsFrame1 = getHeadPositions(boundingBoxesFrame1, gameWindowWidth, gameWindowHeight)
+        headPositionsFrame2 = getHeadPositions(boundingBoxesFrame2, gameWindowWidth, gameWindowHeight)
 
-        return headPositions[idx], positions[idx]
+        closest = findClosestTarget(headPositionsFrame1)
+        #TODO Closest é o alvo no frame 1 que está mais perto da mira. Agora, eu tenho que pegar as posições de cabeça no frame 2,
+        # calcular a que está mais perto de closest, calcular um vetor de velocidade baseado na diferença de tempo entre tirar um print
+        # e o outro, e exportar
+        raise Exception
     
     else:
         return np.asarray([0.0, 0.0, 0.0], dtype=np.float32), None
-    
+
 
 def pixelsToCounts(dxNormalized, dyNormalized, gameWindowWidth, gameWindowHeight):
     dyNormalized = dyNormalized * -1

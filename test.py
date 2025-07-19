@@ -1,13 +1,21 @@
+import time
+import numpy as np
+
 from ultralytics import YOLO
 from PIL import Image
 
-img1 = Image.open("pngs/4_1.png")
-img2 = Image.open("pngs/4_2.png")
+import include.computervision as computervision
 
-# Load an official or custom model
-model = YOLO("yolo11m.pt")  # Load an official Detect model
+detectionModel   = YOLO("yolo11m.engine", task="detect")
 
-# Perform tracking with the model
-results = model.track([img1, img2], classes=[0], tracker="custom.yaml", imgsz=864, conf=0.4)  # Tracking with custom tracker
-for r in results:
-    r.show()
+img1 = Image.open("pngs/2_1.png")
+img2 = Image.open("pngs/2_2.png")
+
+img1 = np.asarray(img1)
+img2 = np.asarray(img2)
+
+img_warmup = np.full_like(img1, np.random.randint(0, 255), np.uint8)
+
+_ = detectionModel.predict(img1, classes=[0], save=False, verbose=False, device="cuda", imgsz=864, conf=0.4)
+
+detectionDx, detectionDy = computervision.selectTarget(img1, img2, detectionModel, 1920, 1080)
