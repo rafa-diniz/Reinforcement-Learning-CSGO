@@ -13,72 +13,60 @@ def readBotsAlive(frame, reader, botsAliveHudCoords):
     return nAlive
 
 
-def detectTargets(frame: np.typing.NDArray, frame2: np.typing.NDArray, detectionModel) -> np.typing.NDArray:
+def detectTargets(frame, detectionModel):
     # Run object detection on the received frame to detect bot positions, measured in pixels
-    results       = detectionModel.predict([frame, frame2], classes=[0], save=False, verbose=False, device="cuda", imgsz=864, conf=0.4)
-
-    boundingBoxesFrame1         = results[0].boxes.xywh.cpu().numpy()
-    boundingBoxesFrame1[..., 0] = boundingBoxesFrame1[..., 0] - (boundingBoxesFrame1[..., 2] / 2)
-    boundingBoxesFrame1[..., 1] = boundingBoxesFrame1[..., 1] - (boundingBoxesFrame1[..., 3] / 2)
+    results   = detectionModel.predict(frame, classes=[0], save=False, verbose=False, device="cuda", imgsz=864, conf=0.4)
+    positions = []
+    for r in results:
+        r = r.cpu()
+        for box in r.boxes.xywh:
+            x0, y0, w, h = box
+            x0 = x0 - w / 2
+            y0 = y0 - h / 2
+            
+            positions.append((x0, y0, w, h))
     
-    boundingBoxesFrame2         = results[1].boxes.xywh.cpu().numpy()
-    boundingBoxesFrame2[..., 0] = boundingBoxesFrame2[..., 0] - (boundingBoxesFrame2[..., 2] / 2)
-    boundingBoxesFrame2[..., 1] = boundingBoxesFrame2[..., 1] - (boundingBoxesFrame2[..., 3] / 2)
+    positions = np.asarray(positions)
 
-    return boundingBoxesFrame1, boundingBoxesFrame2
+    return positions
 
 
-def getHeadPositions(boundingBoxes, gameWindowWidth, gameWindowHeight):
+
+def normalizeBotPositions(positions, gameWindowWidth, gameWindowHeight):
+    positionsNormalized = []    
+
     # The positions with bots are normalized in the -1, 1 range. -1 means the bot is on the left edge of the
     # the screen, and 1 means the bot is on the right edge of the screen.
-    headPositions = np.empty((boundingBoxes.shape[0], 3), dtype=np.float32)
+    for x, y, w, h in positions:
+        xNorm = (x + w * 0.50)  / gameWindowWidth  # x + w * 0.55 moves the crosshair to the middle of the bounding box, adjusted just a bit to the right
+        yNorm = (y + h * 0.12)  / gameWindowHeight # y + h * 0.12 because this puts the aim right on top of the bot's head. Headshots = good.
 
-    # Compute head positions
-    headPositions[..., 0] = (boundingBoxes[..., 0] + boundingBoxes[..., 2] * 0.50) / gameWindowWidth # x + w * 0.50 moves the crosshair to the middle of the bounding box, adjusted just a bit to the right
-    headPositions[..., 1] = (boundingBoxes[..., 1] + boundingBoxes[..., 3] * 0.12) / gameWindowHeight # y + h * 0.12 because this puts the aim right on top of the bot's head. Headshots = good.
+        xNorm = xNorm * 2 - 1
+        yNorm = yNorm * 2 - 1
+        positionsNormalized.append([xNorm, yNorm, 1.0])
 
-    # Map to [-1, 1]
-    headPositions[..., :2] = headPositions[..., :2] * 2.0 - 1.0
+    positionsNormalized = np.asarray(positionsNormalized)
 
-    # Add isValid flag
-    headPositions[..., 2] = 1.0
-
-    return headPositions
+    return positionsNormalized
 
 
-def findClosestTarget(headPositions):
-    # Calculate the eucledian distance from the center of the screen (0,0) to each of the head positions
+
+def selectTarget(frame, detectionModel, gameWindowWidth, gameWindowHeight):
+    positions     = detectTargets(frame, detectionModel)
+    headPositions = normalizeBotPositions(positions, gameWindowWidth, gameWindowHeight)
+
+    # Calculate the eucledian distance from the center of the screen (0,0) to each of the positions
     dists = [ np.hypot(x, y) for x, y, _ in headPositions ]
-
-    # Return the idx of the closest target
-    return int(np.argmin(dists))
-
-
-def selectTarget(frame, frame2, detectionModel, gameWindowWidth, gameWindowHeight, timeElapsed):
-    boundingBoxesFrame1, boundingBoxesFrame2 = detectTargets(frame, frame2, detectionModel)
     
-    # If there's at least one detection in each frame
-    if  boundingBoxesFrame1.shape[0] > 0 \
-    and boundingBoxesFrame2.shape[0] > 0:
-    
-        headPositionsFrame1 = getHeadPositions(boundingBoxesFrame1, gameWindowWidth, gameWindowHeight)
-        closestHeadFrame1   = headPositionsFrame1[findClosestTarget(headPositionsFrame1)]
-        
-        headPositionsFrame2 = getHeadPositions(boundingBoxesFrame2, gameWindowWidth, gameWindowHeight) 
-        idx                 = findClosestTarget(headPositionsFrame2 - closestHeadFrame1)
-        dx, dy, _ = (headPositionsFrame2 - closestHeadFrame1)[idx]
+    # Get the bot with the shortest distance and return it
+    if dists:
+        idx     = int(np.argmin(dists))
 
-        vx = dx / timeElapsed
-        vy = dy / timeElapsed
-
-        predictedHeadPositionX = headPositionsFrame2[idx][0] + vx * (0.045)
-        predictedHeadPositionY = headPositionsFrame2[idx][1] + vy * (0.045)
-
-        return np.asarray([predictedHeadPositionX, predictedHeadPositionY, 1.0], dtype=np.float32)
+        return headPositions[idx], positions[idx]
     
     else:
-        return np.asarray([0.0, 0.0, 0.0], dtype=np.float32)
-
+        return np.asarray([0.0, 0.0, 0.0], dtype=np.float32), None
+    
 
 def pixelsToCounts(dxNormalized, dyNormalized, gameWindowWidth, gameWindowHeight):
     dyNormalized = dyNormalized * -1
@@ -123,7 +111,7 @@ def countsToPixels(cnt_x, cnt_y,
                    gameWindowWidth, gameWindowHeight,
                    sens=1.0, m_yaw=0.022, m_pitch=0.022,
                    return_normalised=False):
-    """Raw mouse counts -> (dx, dy) in pixels (centre-origin).
+    """Raw mouse counts → (dx, dy) in pixels (centre-origin).
        If return_normalised=True it also returns (dxNorm, dyNorm)."""
 
     BASE_H4_3 = 90

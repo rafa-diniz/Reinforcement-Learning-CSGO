@@ -1,3 +1,4 @@
+import cv2
 import time
 import dxcam
 import numpy as np
@@ -13,64 +14,87 @@ def deployAgent(agent, detectionModel):
      maxActionDx, maxActionDy = computervision.pixelsToCounts(1, 1, gameWindowWidth, gameWindowHeight)
      
      region = (gameWindowX0, gameWindowY0, gameWindowX0 + gameWindowWidth, gameWindowY0 + gameWindowHeight)
-     
-     cam    = dxcam.create()
+     cam = dxcam.create()
      cam.start(region=region, target_fps=120)
+
 
      currentY      = 0.0
      invalidDetecs = 0
+     tracker       = cv2.TrackerVit.create()
 
      while True:
-          metrics_pipeline = time.perf_counter()
-
           metrics = []
           if invalidDetecs == 10:
                break
           
-          # Take first screenshot
-          screenshot1     = time.perf_counter()
-          gameFrame       = cam.get_latest_frame()
-          screenshot1_end = time.perf_counter()
+          metrics_screenshot1 = time.perf_counter()
+          gameFrame           = cam.get_latest_frame()
+          metrics_screenshot1 = time.perf_counter() - metrics_screenshot1
+          metrics.append({"Screenshot1": f"{metrics_screenshot1 * 1000:.2f} ms"})
+          
+          metrics_detection = time.perf_counter()
+          (detectionDx, detectionDy, detectionIsValid), bb0 = computervision.selectTarget(gameFrame, 
+                                                                                         detectionModel,
+                                                                                         gameWindowWidth,
+                                                                                         gameWindowHeight
+                                                                                         )
+          metrics_detection = time.perf_counter() - metrics_detection
+          metrics.append({"Detection": f"{metrics_detection * 1000:.2f} ms"})
 
-          metrics.append({"Screenshot1": f"{(screenshot1_end - screenshot1) * 1000:.2f} ms"})
-          time.sleep(0.01)
-          # Take second screenshot
-          screenshot2     = time.perf_counter()
-          gameFrame2      = cam.get_latest_frame()
-          screenshot2_end = time.perf_counter()
-
-          metrics.append({"Screenshot2": f"{(screenshot2_end - screenshot2) * 1000:.2f} ms"})
-          
-          timeElapsed = screenshot2_end - screenshot1
-          
-          metrics_tracking = time.perf_counter()
-          detectionDx, detectionDy, detectionIsValid = computervision.selectTarget(gameFrame, 
-                                                                                   gameFrame2, 
-                                                                                   detectionModel,
-                                                                                   gameWindowWidth,
-                                                                                   gameWindowHeight,
-                                                                                   timeElapsed 
-                                                                                   )
-          
-          metrics.append({"tracking": f"{(time.perf_counter() - metrics_tracking) * 1000:.2f} ms"})
-          
           if detectionIsValid == 0:
                invalidDetecs += 1
           else:
                invalidDetecs = 0
-     
-          metrics.append({"pipeline": f"{(time.perf_counter() - metrics_pipeline) * 1000:.2f} ms"}) 
+               
+               tracker.init(gameFrame, bb0.astype(np.int32))
+
+               metrics_screenshot2 = time.perf_counter()
+               gameFrame2          = cam.get_latest_frame()
+               metrics_screenshot2 = time.perf_counter() - metrics_screenshot2
+               metrics.append({"Screenshot2": f"{metrics_screenshot2 * 1000:.2f} ms"})
+
+               metrics_tracking = time.perf_counter()
+               ok, bb1          = tracker.update(gameFrame2)
+               metrics_tracking = time.perf_counter() - metrics_tracking
+               metrics.append({"Tracking": f"{metrics_tracking * 1000:.2f} ms"})
+
+               if ok:
+                    bb0Center = np.asarray([bb0[0] + bb0[2] / 2, bb0[1] + bb0[3] / 2])
+                    bb1Center = np.asarray([bb1[0] + bb1[2] / 2, bb1[1] + bb1[3] / 2])
+
+                    needsTracker = np.hypot(*(bb0Center - bb1Center)) > 5
+               else:
+                    needsTracker = False
+               
+
+               print(needsTracker)
+
+               if needsTracker:
+                    
+                    if not ok:
+                         continue
+                    
+                    dt = metrics_screenshot1 + metrics_detection + metrics_screenshot2
+                    vx = (bb1[0] - bb0[0]) / dt # Pixels / segundo
+                    vy = (bb1[1] - bb0[1]) / dt # Pixels / segundo
+
+                    detectionDx = bb0[0] + vx * (metrics_screenshot1 + metrics_detection + metrics_screenshot2 + metrics_tracking + 0.015) # Prevê o novo X levando em conta a velocidade
+                    detectionDy = bb0[1] + vy * (metrics_screenshot1 + metrics_detection + metrics_screenshot2 + metrics_tracking + 0.015) # Prevê o novo Y levando em conta a velocidade
+                              
+                    # Normaliza no intervalo [-1, 1]
+                    detectionDx = (detectionDx + bb0[2] * 0.52)  / gameWindowWidth
+                    detectionDx = detectionDx * 2 - 1
+                    
+                    # Normaliza no intervalo [-1, 1]
+                    detectionDy = (detectionDy + bb0[3] * 0.12)  / gameWindowHeight
+                    detectionDy = detectionDy * 2 - 1
+
           
-          metrics_inference = time.perf_counter()
+          print(metrics)          
           output, _ = agent.predict(np.array([detectionDx, detectionDy, detectionIsValid, currentY]),
                                    deterministic=True
                                    )
-          metrics.append({"inference": f"{(time.perf_counter() - metrics_inference) * 1000:.2f} ms"})
 
-          
-          print(metrics)
-
-          
           actionDx, actionDy, shootProbability = output
 
           dxMouseUnits, dyMouseUnits = np.ceil(actionDx * maxActionDx), np.ceil(actionDy * maxActionDy)
@@ -79,13 +103,12 @@ def deployAgent(agent, detectionModel):
 
           utils.moveMouse(dxMouseUnits, dyMouseUnits)
 
-          # O flick do mouse é muito rápido, e pode jogar o ponteiro do mouse para fora da janela! 
-          # Esse time.sleep é para o jogo não perder o foco do ponteiro do mouse.
-          time.sleep(0.006)
+          time.sleep(0.01)
           if np.random.rand() < shootProbability:
                utils.leftClick()
-    
+
+
           currentY  += actionDy * 0.41464621474517566
           currentY  = np.clip(currentY, -1, 1)
-          
-          time.sleep(0.2)
+
+          time.sleep(0.13)
