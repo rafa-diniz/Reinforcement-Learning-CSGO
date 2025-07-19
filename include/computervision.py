@@ -50,11 +50,11 @@ def findClosestTarget(headPositions):
     # Calculate the eucledian distance from the center of the screen (0,0) to each of the head positions
     dists = [ np.hypot(x, y) for x, y, _ in headPositions ]
 
-    # Get the bot with the shortest distance and return its bounding box
-    return headPositions[int(np.argmin(dists))]
+    # Return the idx of the closest target
+    return int(np.argmin(dists))
 
 
-def selectTarget(frame, frame2, detectionModel, gameWindowWidth, gameWindowHeight):
+def selectTarget(frame, frame2, detectionModel, gameWindowWidth, gameWindowHeight, timeElapsed):
     boundingBoxesFrame1, boundingBoxesFrame2 = detectTargets(frame, frame2, detectionModel)
     
     # If there's at least one detection in each frame
@@ -62,16 +62,22 @@ def selectTarget(frame, frame2, detectionModel, gameWindowWidth, gameWindowHeigh
     and boundingBoxesFrame2.shape[0] > 0:
     
         headPositionsFrame1 = getHeadPositions(boundingBoxesFrame1, gameWindowWidth, gameWindowHeight)
-        headPositionsFrame2 = getHeadPositions(boundingBoxesFrame2, gameWindowWidth, gameWindowHeight)
+        closestHeadFrame1   = headPositionsFrame1[findClosestTarget(headPositionsFrame1)]
+        
+        headPositionsFrame2 = getHeadPositions(boundingBoxesFrame2, gameWindowWidth, gameWindowHeight) 
+        idx                 = findClosestTarget(headPositionsFrame2 - closestHeadFrame1)
+        dx, dy, _ = (headPositionsFrame2 - closestHeadFrame1)[idx]
 
-        closest = findClosestTarget(headPositionsFrame1)
-        #TODO Closest é o alvo no frame 1 que está mais perto da mira. Agora, eu tenho que pegar as posições de cabeça no frame 2,
-        # calcular a que está mais perto de closest, calcular um vetor de velocidade baseado na diferença de tempo entre tirar um print
-        # e o outro, e exportar
-        raise Exception
+        vx = dx / timeElapsed
+        vy = dy / timeElapsed
+
+        predictedHeadPositionX = headPositionsFrame2[idx][0] + vx * (0.045)
+        predictedHeadPositionY = headPositionsFrame2[idx][1] + vy * (0.045)
+
+        return np.asarray([predictedHeadPositionX, predictedHeadPositionY, 1.0], dtype=np.float32)
     
     else:
-        return np.asarray([0.0, 0.0, 0.0], dtype=np.float32), None
+        return np.asarray([0.0, 0.0, 0.0], dtype=np.float32)
 
 
 def pixelsToCounts(dxNormalized, dyNormalized, gameWindowWidth, gameWindowHeight):
