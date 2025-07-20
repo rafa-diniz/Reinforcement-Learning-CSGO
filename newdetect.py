@@ -4,21 +4,26 @@ import numpy as np
 img = Image.open("detect_test.png")
 img = np.asarray(img)
 
-print(img.shape)
+# X e Y dos pixels que vão iniciar o run-length
+scanlineStartPoint = [
+                        [0.384815, 0.002780],
+                        [0.384815, 0.031510]
+                    ]
 
-# Y dos pixels que vão iniciar o run-length
-pixels_of_interest = [
-                [0.0, 0.2769],
-                [0.0, 0.7692]
-            ]
+gameResolutionX = 1923
+gameResolutionY = 1079
+pixeloffset     = 0.0156
 
-# Para fazer o crop
-hudcoords = [
-                [0.3744, 0.0],
-                [0.4758, 0.0611]
-            ]
+test = []
+for i in range(2):
+    for j in range(6):
+        test.append([
+                        np.round(scanlineStartPoint[i][1] * gameResolutionY),
+                        np.round((scanlineStartPoint[i][0] + pixeloffset * j) * gameResolutionX)
+                    ])
+        
 
-hudcoords = (np.asarray(hudcoords) * np.array([1920, 1080])).astype(np.int32)
-img       = img[hudcoords[0][1] : hudcoords[1][1], hudcoords[0][0] : hudcoords[1][0]]
 
-print(img.shape)
+test = np.asarray(test, dtype=np.int32)
+pixels = img[test[..., 0], test[..., 1]]
+print(np.all(pixels == [181, 212, 238], axis=1))

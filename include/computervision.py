@@ -2,15 +2,29 @@ import math
 import numpy as np
 
 
-def readBotsAlive(frame, reader, botsAliveHudCoords):
-    # --- Crop out the hud element with the number of bots alive ---
-    botsAliveHudElement = frame.copy()[botsAliveHudCoords[1] : botsAliveHudCoords[3], botsAliveHudCoords[0] : botsAliveHudCoords[2]]
-    
-    # --- Use OCR to get the number in the image ---
-    nAlive = reader.readtext(botsAliveHudElement, allowlist='0123456789')
-    nAlive = int(nAlive[0][1])
+def readBotsAlive(frame, gameWindowWidth, gameWindowHeight):
+    # X e Y dos pixels que vão iniciar o run-length
+    scanlineStartPoint = [
+                            [0.384815, 0.002780],
+                            [0.384815, 0.031510]
+                        ]
 
-    return nAlive
+    pixeloffset     = 0.0156
+
+    test = []
+    for i in range(2):
+        for j in range(6):
+            test.append([
+                            np.round(scanlineStartPoint[i][1] * gameWindowHeight),
+                            np.round((scanlineStartPoint[i][0] + pixeloffset * j) * gameWindowWidth)
+                        ])
+    
+    
+    test = np.asarray(test, dtype=np.int32)
+    pixels = frame[test[..., 0], test[..., 1]]
+    print(np.all(pixels == [181, 212, 238], axis=1)) #TODO contar os true e retornar o numero. Tambem armazenar o array do frame anterior
+    # para evitar contar errado
+    return 12
 
 
 def detectTargets(frame, detectionModel):
@@ -32,7 +46,7 @@ def detectTargets(frame, detectionModel):
 
 
 
-def normalizeBotPositions(positions, gameWindowWidth, gameWindowHeight):
+def getHeadPositions(positions, gameWindowWidth, gameWindowHeight):
     positionsNormalized = []    
 
     # The positions with bots are normalized in the -1, 1 range. -1 means the bot is on the left edge of the
@@ -53,14 +67,14 @@ def normalizeBotPositions(positions, gameWindowWidth, gameWindowHeight):
 
 def selectTarget(frame, detectionModel, gameWindowWidth, gameWindowHeight):
     positions     = detectTargets(frame, detectionModel)
-    headPositions = normalizeBotPositions(positions, gameWindowWidth, gameWindowHeight)
+    headPositions = getHeadPositions(positions, gameWindowWidth, gameWindowHeight)
 
     # Calculate the eucledian distance from the center of the screen (0,0) to each of the positions
     dists = [ np.hypot(x, y) for x, y, _ in headPositions ]
     
     # Get the bot with the shortest distance and return it
     if dists:
-        idx     = int(np.argmin(dists))
+        idx = int(np.argmin(dists))
 
         return headPositions[idx], positions[idx]
     
