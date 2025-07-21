@@ -1,7 +1,6 @@
 import math
 import numpy as np
 
-
 def detectKills(frame, previousAlive, gameWindowWidth, gameWindowHeight):
     # In Counter Strike, each frame contains information about the status of each of the 12 bots alive.
     # Each bot has a "portrait" on the HUD. If this portrait is lit-up, it means the bot is alive, otherwise it has
@@ -46,7 +45,7 @@ def detectKills(frame, previousAlive, gameWindowWidth, gameWindowHeight):
     return confirmedKills
 
 
-def detectTargets(frame: np.typing.NDArray, detectionModel: "Ultralytics model") -> np.typing.NDArray:
+def detectTargets(frame: np.typing.NDArray, detectionModel: "Ultralytics model") -> np.typing.NDArray: # type: ignore
     """
     Receives an image and an object detector and outputs the bounding boxes for the detections in the frame.
     I don't like the default way that the boxes are exported and prefer working with them in this format:
@@ -100,8 +99,9 @@ def getHeadPositions(boxes: np.typing.NDArray, gameWindowWidth: int, gameWindowH
     x = ( x + (w * 0.50) ) / gameWindowWidth  # x + w * 0.50 moves the crosshair to the middle of the bounding box.
     y = ( y + (h * 0.12) ) / gameWindowHeight # y + h * 0.12 because this lowers the aim right onto the bot's head, increasing the chance of a headshot.
     
-    # The positions with bots are normalized in the -1, 1 range. -1 means the bot is on the left edge of the
-    # the screen, and 1 means the bot is on the right edge of the screen. This makes it easier for the neural network to learn.
+    # The head positions are normalized in the -1, 1 range. -1 is the leftmost pixel of the
+    # the screen, and 1 is the rightmost pixel of the screen. In the Y axis, -1 = Topmost pixel, 1 = Bottommost pixel. 
+    # This -1, 1 normalization makes it easier for the neural network to learn.
     x = (x * 2) - 1
     y = (y * 2) - 1
 
