@@ -2,81 +2,130 @@ import math
 import numpy as np
 
 
-def readBotsAlive(frame, gameWindowWidth, gameWindowHeight):
-    # X e Y dos pixels que vão iniciar o run-length
+def detectKills(frame, previousAlive, gameWindowWidth, gameWindowHeight):
+    # In Counter Strike, each frame contains information about the status of each of the 12 bots alive.
+    # Each bot has a "portrait" on the HUD. If this portrait is lit-up, it means the bot is alive, otherwise it has
+    # been killed. Below is an AI-free way of detecting the number of kills.
+
+    # This is more specific to Counter Strike, but the bot portraits are divided in two rows, each row with six portraits.
+    # Instead of storing the location of each portrait, I added the location of the two portraits in the first column, and
+    # then I take advantage of the fact that all portraits are spaced out by the same amount (portraitOffset). I simply
+    # perform a scanline starting from the two portraits in the first row and add an offset to dinamically get the location
+    # of the other portraits.
     scanlineStartPoint = [
                             [0.384815, 0.002780],
                             [0.384815, 0.031510]
                         ]
 
-    pixeloffset     = 0.0156
+    portraitOffset = 0.0156
 
-    test = []
+    # Generating the location of the other portraits. This is ugly, and runs everytime this function is called, but it's also
+    # a for loop with 12 iterations. This really isn't the bottleneck of the program. Maybe optimize later.
+    portraitLocation = []
     for i in range(2):
         for j in range(6):
-            test.append([
+            portraitLocation.append([
                             np.round(scanlineStartPoint[i][1] * gameWindowHeight),
-                            np.round((scanlineStartPoint[i][0] + pixeloffset * j) * gameWindowWidth)
+                            np.round((scanlineStartPoint[i][0] + portraitOffset * j) * gameWindowWidth)
                         ])
     
     
-    test = np.asarray(test, dtype=np.int32)
-    pixels = frame[test[..., 0], test[..., 1]]
-    print(np.all(pixels == [181, 212, 238], axis=1)) #TODO contar os true e retornar o numero. Tambem armazenar o array do frame anterior
-    # para evitar contar errado
-    return 12
-
-
-def detectTargets(frame, detectionModel):
-    # Run object detection on the received frame to detect bot positions, measured in pixels
-    results   = detectionModel.predict(frame, classes=[0], save=False, verbose=False, device="cuda", imgsz=864, conf=0.4)
-    positions = []
-    for r in results:
-        r = r.cpu()
-        for box in r.boxes.xywh:
-            x0, y0, w, h = box
-            x0 = x0 - w / 2
-            y0 = y0 - h / 2
-            
-            positions.append((x0, y0, w, h))
+    portraitLocation = np.asarray(portraitLocation, dtype=np.int32)
+    # If the portrait is lit-up, the pixels in it should have the color [181, 212, 238]. Here we get currentAlive, an
+    # array with True where the portrait is lit-up and False where it isn't
+    currentAlive     = np.all(frame[portraitLocation[..., 0], portraitLocation[..., 1]] == [181, 212, 238], axis=1)
     
-    positions = np.asarray(positions)
+    # A bitwise xor of currentAlive and previousAlive tells us where the 'alive' status has changed. This is important because
+    # sometimes a screenshot can happen so quick that some bots might not have had the chance to respawn. If a bot was killed in the
+    # previous action and still hasn't respawned, its status will count as "killed" even if it wasn't the current action that killed it.
+    # This could seriously mess up the reward function, so I coded this black magic that only counts as kill bots that:
+    # a) were alive in the previous verification (previousAlive)
+    # b) are killed now.
+    confirmedKills = np.count_nonzero(np.bitwise_xor(previousAlive, currentAlive)[previousAlive])
 
-    return positions
+    return confirmedKills
+
+
+def detectTargets(frame: np.typing.NDArray, detectionModel: "Ultralytics model") -> np.typing.NDArray:
+    """
+    Receives an image and an object detector and outputs the bounding boxes for the detections in the frame.
+    I don't like the default way that the boxes are exported and prefer working with them in this format:
+    a) X and Y point to the top left corner of the bounding box
+    b) W and H are the width and the height
+
+    So I convert the bounding boxes to be in this format.
+
+    Args:
+        frame (np.typing.NDArray): The image as a numpy array
+        detectionModel (Ultralytics model): The ultralytics object detector. Should be an instance of Ultralytics.YOLO
+
+    Returns:
+        np.typing.NDArray: Bounding boxes in the xywh format
+    """
+    
+    results = detectionModel.predict(frame, classes=[0], save=False, verbose=False, device="cuda", imgsz=864, conf=0.4)
+    
+    # The X and Y values in boxes.xywh are centered. I'd rather have them as X and Y pointing
+    # to the top-left corner and W,H as the pure width and height. This here converts them
+    # to the format I'm more comfortable with
+    boxes = results[0].boxes.xywh
+    boxes[..., 0] = boxes[..., 0] - (boxes[..., 2] / 2)
+    boxes[..., 1] = boxes[..., 1] - (boxes[..., 3] / 2)
+
+    boxes = boxes.cpu().numpy()
+
+    return boxes
 
 
 
-def getHeadPositions(positions, gameWindowWidth, gameWindowHeight):
-    positionsNormalized = []    
+def getHeadPositions(boxes: np.typing.NDArray, gameWindowWidth: int, gameWindowHeight: int) -> np.typing.NDArray:
+    """Receives bounding boxes and outputs the estimated position of the head within that bounding box.
+    The head positions are in the format that the network expects, that is:
+    a) normalized in the -1, 1 range
+    b) with an isValid flag appended to each detection.
 
+    Args:
+        boxes (np.typing.NDArray): The bounding boxes
+        gameWindowWidth (int): Width of the game window
+        gameWindowHeight (int): Height of the game window
+
+    Returns:
+        np.typing.NDArray: The positions of the heads
+    """
+    x = boxes[..., 0]
+    y = boxes[..., 1]
+    w = boxes[..., 2]
+    h = boxes[..., 3]
+    
+    x = ( x + (w * 0.50) ) / gameWindowWidth  # x + w * 0.50 moves the crosshair to the middle of the bounding box.
+    y = ( y + (h * 0.12) ) / gameWindowHeight # y + h * 0.12 because this lowers the aim right onto the bot's head, increasing the chance of a headshot.
+    
     # The positions with bots are normalized in the -1, 1 range. -1 means the bot is on the left edge of the
-    # the screen, and 1 means the bot is on the right edge of the screen.
-    for x, y, w, h in positions:
-        xNorm = (x + w * 0.50)  / gameWindowWidth  # x + w * 0.55 moves the crosshair to the middle of the bounding box, adjusted just a bit to the right
-        yNorm = (y + h * 0.12)  / gameWindowHeight # y + h * 0.12 because this puts the aim right on top of the bot's head. Headshots = good.
+    # the screen, and 1 means the bot is on the right edge of the screen. This makes it easier for the neural network to learn.
+    x = (x * 2) - 1
+    y = (y * 2) - 1
 
-        xNorm = xNorm * 2 - 1
-        yNorm = yNorm * 2 - 1
-        positionsNormalized.append([xNorm, yNorm, 1.0])
+    # Generating the isValid flags. It's always valid (valid=1) because 'boxes' comes from a YOLO model; that is, it's always
+    # outlining bounding boxes of true detections. 
+    isValid       = np.ones_like(x)
+    headPositions = np.stack([x, y, isValid], axis=1)
 
-    positionsNormalized = np.asarray(positionsNormalized)
-
-    return positionsNormalized
+    return headPositions
 
 
 
 def selectTarget(frame, detectionModel, gameWindowWidth, gameWindowHeight):
-    positions     = detectTargets(frame, detectionModel)
-    headPositions = getHeadPositions(positions, gameWindowWidth, gameWindowHeight)
+    boxes         = detectTargets(frame, detectionModel)
+    headPositions = getHeadPositions(boxes, gameWindowWidth, gameWindowHeight)
 
     # Calculate the eucledian distance from the center of the screen (0,0) to each of the positions
     dists = [ np.hypot(x, y) for x, y, _ in headPositions ]
     
-    # Get the bot with the shortest distance and return it
+    # Get the bot with the shortest distance and return it along with the corresponding 
+    # bounding box for that detection.
     if dists:
         idx = int(np.argmin(dists))
-
-        return headPositions[idx], positions[idx]
+        return headPositions[idx], boxes[idx]
     
     else:
         return np.asarray([0.0, 0.0, 0.0], dtype=np.float32), None
