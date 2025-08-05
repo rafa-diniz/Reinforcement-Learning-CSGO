@@ -83,9 +83,7 @@ def deployAgent(agent, detectionModel):
                     detectionDy = (detectionDy + screenshot1BoundingBox[3] * 0.12)  / gameWindowHeight
                     detectionDy = detectionDy * 2 - 1
           
-          #computervision.readBotsAlive(screenshot1, gameWindowWidth, gameWindowHeight)
-          #time.sleep(0.5)
-          #continue
+          
           print(metrics)          
           output, _ = agent.predict(np.array([detectionDx, detectionDy, detectionIsValid, currentY]),
                                    deterministic=True

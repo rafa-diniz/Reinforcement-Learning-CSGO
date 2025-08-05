@@ -106,7 +106,7 @@ class CSGOAimEnv(gym.Env):
     def step(self, action):
         self.numSteps += 1
 
-        if self.invalidDetecs > 20:
+        if self.invalidDetecs > 10:
             raise Exception
         
         # Parse the action chosen by the network
@@ -126,6 +126,7 @@ class CSGOAimEnv(gym.Env):
 
         reward = 0.0
         if self.detectionIsValid:
+            self.invalidDetecs = 0
             ok, bb1  = self.tracker.update(gameFrame)
             
             #  Add a big reward for getting a kill
@@ -174,6 +175,7 @@ class CSGOAimEnv(gym.Env):
         self.currentY  += actionDy * 0.41464621474517566
         self.currentY  = np.clip(self.currentY, -1, 1) # Cap the number to be in the range [-1, 1]
 
+        print(confirmedKills, self.numberKilled)
         obs  = self._makeObs(self.detectionDx, self.detectionDy, self.detectionIsValid, self.currentY)
         
         time.sleep(0.3)

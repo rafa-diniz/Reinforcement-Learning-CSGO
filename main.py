@@ -68,7 +68,15 @@ if trainCSGOAimEnv:
     env = csgoaimenv.CSGOAimEnv(detectionModel)
     env = Monitor(env, str(log_dir))
 
-    agent    = sb3.PPO.load("ppo_virtualEnv.zip", env=env, device="cpu")
+    agent = sb3.PPO.load("ppo_virtualEnv.zip", 
+                         env=env, 
+                         device="cpu", 
+                         batch_size=256,
+                         gamma=0.5,
+                         clip_range=5e-2,
+                         target_kl=2e-2,
+                         learning_rate=2e-5
+                         )
     
     agent.learn(total_timesteps=100_000)
     agent.save("ppo_csgoaimenv.zip")
