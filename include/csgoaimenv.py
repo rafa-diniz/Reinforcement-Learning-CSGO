@@ -34,7 +34,6 @@ class CSGOAimEnv(gym.Env):
         dtype = np.float32
         )
 
-        self.reader         = easyocr.Reader(['en'], gpu=True)
         self.detectionModel = detectionModel
         
 
@@ -66,14 +65,14 @@ class CSGOAimEnv(gym.Env):
         self.detectionDx        = None
         self.detectionDy        = None
         self.numSteps           = 0
-
-        self.shoot             = True
+        self.invalidDetecs      = 0
+        self.shoot              = True
 
 
 
     def reset(self, *, seed=None, options=None):
         super().reset(seed=seed)
-        time.sleep(0.2)
+        time.sleep(0.5)
 
         # Reset the number of steps taken
         self.numSteps = 0
@@ -96,7 +95,7 @@ class CSGOAimEnv(gym.Env):
             self.tracker.init(gameFrame, bb0.astype(np.int32))
 
         # Run OCR to get the number of bots alive
-        self.previousAlive = 12
+        self.previousAlive = np.asarray([True] * 12)
         self.numberKilled  = 0
 
         obs = self._makeObs(self.detectionDx, self.detectionDy, self.detectionIsValid, self.currentY)
@@ -107,6 +106,9 @@ class CSGOAimEnv(gym.Env):
     def step(self, action):
         self.numSteps += 1
 
+        if self.invalidDetecs > 20:
+            raise Exception
+        
         # Parse the action chosen by the network
         actionDx, actionDy, shootProbability = action
 
@@ -120,29 +122,28 @@ class CSGOAimEnv(gym.Env):
             utils.leftClick()
 
         gameFrame     = self.cam.get_latest_frame()
-        currentAlive  = computervision.readBotsAlive(gameFrame, self.reader, self.botsAliveHudCoords)
-        
-        time.sleep(2)
+        confirmedKills, currentAlive  = computervision.detectKills(gameFrame, self.previousAlive, self.gameWindowWidth, self.gameWindowHeight)
 
         reward = 0.0
         if self.detectionIsValid:
             ok, bb1  = self.tracker.update(gameFrame)
             
             #  Add a big reward for getting a kill
-            if currentAlive < self.previousAlive:
-                self.numberKilled += (self.previousAlive - currentAlive)
-                reward  += (self.previousAlive - currentAlive) * 2.0
+            self.numberKilled += confirmedKills
+            reward  += confirmedKills * 2.0
             # Distance Reward: decreases the penalty the closer the agent is to the target
-            elif ok:
+            if ok:
                 # Get the distance to the target in mouse units
-                target   = computervision.normalizeBotPositions(np.asarray([bb1]), self.gameWindowWidth, self.gameWindowHeight)
+                target   = computervision.getHeadPositions(np.asarray([bb1]), self.gameWindowWidth, self.gameWindowHeight)
                 target   = target[0][ 0 : 2]
                 distance = np.hypot(*target)
 
                 reward    -= distance
             # Lost the target: decrease reward further
-            elif not ok:
+            else:
                 reward -= 1
+        else:
+            self.invalidDetecs += 1
     
 
         # Penalize the agent for looking at the sky or at the ground
@@ -162,7 +163,7 @@ class CSGOAimEnv(gym.Env):
         if bb0 is not None: # selectTarget() didn't find anything  
             self.tracker.init(gameFrame, bb0.astype(np.int32))
 
-        self.previousAlive     = 12
+        self.previousAlive     = currentAlive
         self.detectionDx       = nextDetectionDx
         self.detectionDy       = nextDetectionDy
         self.detectionIsValid  = nextDetectionIsValid
@@ -175,6 +176,8 @@ class CSGOAimEnv(gym.Env):
 
         obs  = self._makeObs(self.detectionDx, self.detectionDy, self.detectionIsValid, self.currentY)
         
+        time.sleep(0.3)
+
         return obs, reward, done, truncated, {}
 
 

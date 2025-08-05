@@ -9,11 +9,11 @@ from include import csgoaimenv, utils, virtualenv, deploy
 
 
 trainVirtualEnv  = False
-trainCSGOAimEnv  = False
+trainCSGOAimEnv  = True
 chartVirtualEnv  = False
 chartCSGOAimEnv  = False
 
-deployAgent      = True
+deployAgent      = False
 
 
 detectionModel   = YOLO("yolo11m.engine", task="detect")

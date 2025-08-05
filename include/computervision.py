@@ -42,7 +42,7 @@ def detectKills(frame, previousAlive, gameWindowWidth, gameWindowHeight):
     # b) are killed now.
     confirmedKills = np.count_nonzero(np.bitwise_xor(previousAlive, currentAlive)[previousAlive])
 
-    return confirmedKills
+    return confirmedKills, currentAlive
 
 
 def detectTargets(frame: np.typing.NDArray, detectionModel: "Ultralytics model") -> np.typing.NDArray: # type: ignore
@@ -133,7 +133,7 @@ def selectTarget(frame, detectionModel, gameWindowWidth, gameWindowHeight):
 
 def pixelsToCounts(dxNormalized, dyNormalized, gameWindowWidth, gameWindowHeight):
     dyNormalized = dyNormalized * -1
-    """Screen (px,py) ➜ (dx,dy) in raw mouse counts."""
+    """Screen (px,py) -> (dx,dy) in raw mouse counts."""
     # 1)  What the console says:
     BASE_H4_3 = 90
     VFOV_DEG = math.degrees(
