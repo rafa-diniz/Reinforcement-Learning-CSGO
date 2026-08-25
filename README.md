@@ -3,20 +3,43 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.12.10-blue.svg)](https://www.python.org/)
 
+## Demo
+<table>
+  <tr>
+    <td>Stationary Targets</td>
+    <td>
+      <video
+        src="https://github.com/user-attachments/assets/207b4ef4-5e02-4a01-ab87-8caae496fee5"
+        width="391"
+        autoplay
+        loop
+        muted
+        playsinline>
+      </video>
+    </td>
+  </tr>
+  <tr>
+    <td>Moving Targets</td>
+    <td>
+      <video
+        src="https://github.com/user-attachments/assets/9094ed74-faae-40fd-8afd-c779a00b3450"
+        width="391"
+        autoplay
+        loop
+        muted
+        playsinline>
+      </video>
+    </td>
+  </tr>
+</table>
+
+
 **TL;DR**
 
 This repo contains my code and trained weights for a Deep Reinforcement Learning agent that learns aiming mechanics in Counter-Strike using visual input and PPO.
 
 The pipeline captures game frames, detects valid targets and uses PPO to learn the mouse movements required to move the crosshair towards them. On the community map *Aim Botz* it averages **93.6 ± 2.8 kills-per-minute (KPM) on stationary targets and 39.2 ± 1.7 KPM on moving targets**. In my tests, this was roughly 2x faster than the human players I compared it against (Master Guardian I - Distinguished Master Guardian rank).
 
-
-## Demo
-| | |
-|---------------------------|-------|
-| Stationary Targets | ![stationary](demos/stationary.gif) |
-| Moving Targets | ![moving](demos/moving.gif) |
-| | |
----
 
 ## Motivation
 
