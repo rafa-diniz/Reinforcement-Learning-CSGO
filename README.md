@@ -1,24 +1,26 @@
-# 🎯 Deep Reinforcement Learning for Counter-Strike: Global Offensive
+# Vision-Based Reinforcement Learning for 3D Aiming Control
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.12.10-blue.svg)](https://www.python.org/)
 
 **TL;DR**
 
-This repo contains my code and trained weights for the Deep Reinforcement Learning network described in my paper **"Deep Reinforcement Learning for Counter-Strike: Global Offensive"**.  
-The pipeline captures game frames, detects valid targets and learns mouse movements + "shoot" via PPO. On the community map *Aim Botz* it averages **93.6 ± 2.8 kills-per-minute (KPM) on stationary targets and 39.2 ± 1.7 KPM on moving targets** - roughly 2× faster than human players (Master Guardian I - Dintinguished Master Guardian rank).
+This repo contains my code and trained weights for a Deep Reinforcement Learning agent that learns aiming mechanics in Counter-Strike using visual input and PPO.
+The pipeline captures game frames, detects valid targets and uses PPO to learn the mouse movements required to move the crosshair towards them. On the community map *Aim Botz* it averages **93.6 ± 2.8 kills-per-minute (KPM) on stationary targets and 39.2 ± 1.7 KPM on moving targets**. In my tests, this was roughly 2x faster than the human players I compared it against (Master Guardian I - Distinguished Master Guardian rank).
 
-## Technical Info
-In operating systems, cursor movement is tracked in "Mouse Units", which correspond exactly to screen pixels when interacting with a flat 2D interface - web browsers, for example. In 3D games, however, the scene is rendered in three dimensions and then projected onto a 2D plane, with said projection being shaped by camera parameters such as horizontal/vertical FOV, focal distance, and aspect ratio (4:3, 16:9, 21:9, etc.). As a result, moving the mouse 100 units in a 3D game won't necessarily move the on-screen crosshair by 100 pixels, because the projection math has to be “undone,” and that can only be done perfectly if the exact camera settings are known.
+## Motivation
 
-Sadly, using Supervised Learning for this task is very challenging because commercial games rarely expose the in-engine settings for the game camera. Without the exact intrinsic camera settings it is impossible to set up a Supervised Learning training loop that undoes the 3D -> 2D projection.
+In operating systems, cursor movement is tracked in "Mouse Units", which correspond exactly to screen pixels when interacting with a flat 2D interface - web browsers, for example. In 3D games, however, the scene is rendered in three dimensions and then projected onto a 2D plane, with said projection being shaped by camera parameters such as horizontal/vertical FOV, focal distance, and aspect ratio (4:3, 16:9, 21:9, etc.). As a result, a target being 100 pixels away from the crosshair does not necessarily mean that moving the mouse by 100 units will place the crosshair on it. The mapping depends on the game's camera and input settings.
 
-This is, however, a great use case for Deep Reinforcement Learning. DRL algorithms learn from multiple experiences, and can be taught to approximate these values by using a reliable metric, such as a fixed target. This is the main idea behind my DRL agent - using screen capture and fixed targets inside Counter-Strike to approximate the 2D -> 3D counter-projection function. By training the agent with the appropriate reward function, the DRL network can eventually learn to aim in Counter-Strike.
+One way to solve this would be to explicitly model or calibrate the relationship between screen-space distance and mouse movement. The problem is that this mapping depends on several game and camera settings, and building a clean supervised dataset for every possible game configuration would be pretty annoying.
+
+This is, however, a pretty nice use case for Deep Reinforcement Learning. Instead of explicitly deriving this mapping, an RL agent can learn it by interacting with the game: move the mouse, observe how the target moved relative to the crosshair, and use that feedback to improve its next action.
+
+This is the main idea behind my Reinforcement Learning agent, using screen capture and targets inside Counter-Strike to learn the mapping between 2D screen-space target distance and the mouse movements required to aim at them. By training the agent with the appropriate reward function, the network can eventually learn to aim in Counter-Strike.
 
 
 ## Disclaimer
-I do not recommend using this as an aimbot. If you are looking for that, look for "YOLO Aimbot" or similar on GitHub and you'll find plenty of such projects. This one is a proof of concept for how Reinforcement Learning can be combined with Computer Vision to teach RL agents to aim in 3D games :P
-
+This project was built as a proof of concept for combining Reinforcement Learning and Computer Vision to teach an agent visual control in a real 3D game. All the experiments and benchmarks in this repo were performed in the Aim Botz training environment.
 
 ## Demo
 | | |
@@ -32,9 +34,9 @@ I do not recommend using this as an aimbot. If you are looking for that, look fo
 ## Key Features
 |  |  |
 |------|---------------|
-| **Plug-and-play PPO agent** | Can theoretically be used to teach aiming mechanics in any 3D game |
-| **State of the Art** | Uses Proximal Policy Optimization, ultra-lightweight Visual Transformers and one-shot detection models.
-| **Vision-only pipeline** | No game memory access -> portable & encourages fair-play |
+| **PPO aiming agent** | The same training idea can theoretically be adapted to other 3D environments |
+| **Modern ML stack** | Uses Proximal Policy Optimization, lightweight Visual Transformers for tracking and real-time object detection models.
+| **Vision-only pipeline** | Works from captured frames without reading the game's internal memory |
 | **Two-stage training** | 2M steps in a **VirtualEnv** for speed, then 100k steps in the real game to fine-tune |
 | **Frame-based Object detection** | Fast head-box detection on each frame |
 | **Optional ViT tracker** | Predicts target motion to compensate vision latency |
@@ -59,8 +61,8 @@ pip install -r requirements.txt
 # 5) Compile the tensorRT detection model
 python exportengine.py
 
-# 6) Run the demo on CS:GO
-# If loading the trained weights, make sure to use the same game settings as me - the weights learned the 2D -> 3D mapping for my game settings; if you want to use different game settings, you'll have to train the agent from scratch. My settings: windowed, 1920×1080, FOV 90, mouse sentivity 1.0, mouse yaw and mouse pitch = 0.022, disable raw_input in mouse settings)
+# 6) Run the agent on the Aim Botz training map
+# If loading the trained weights, make sure to use the same game settings as me - the weights learned the screen-space -> mouse-movement mapping for my game settings; if you want to use different game settings, you'll have to train the agent from scratch. My settings: windowed, 1920×1080, FOV 90, mouse sentivity 1.0, mouse yaw and mouse pitch = 0.022, disable raw_input in mouse settings)
 python main.py
 ```
 
@@ -70,11 +72,11 @@ The general architecture has two main components: A Computer Vision pipeline (Ob
 
 ![architecture](demos/architecture-tracker.png)
 
-The Computer Vision component is responsible for extracting information from the environment, such as the positions of enemies, the velocity of a target and registering successful kills. All this information is used to evaluate the PPO network's actions and drive it towards the desired behavior.
+The Computer Vision component is responsible for extracting information from the environment, such as the positions of enemies, the velocity of a target and registering successful kills.
 
 The reward function is simple as it only contains three components, but it still proved itself to be extremely powerful at teaching the agent the intended behavior.
 
-The Distance Penalty term penalizes the agent for aiming the crosshair away from the target with the $-\mu$. In case the agent picks a mouse movement that moves the crosshair so much that the target is no longer in the frame, a -0.6 fixed reward is discounted.
+The Distance Penalty term penalizes the agent for aiming the crosshair away from the target using $-\mu$. If the agent picks a movement large enough to lose the target, it receives a fixed -0.6 penalty instead.
 
 The Kill Bonus rewards the agent for getting kills.
 
