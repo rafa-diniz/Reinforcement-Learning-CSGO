@@ -9,6 +9,15 @@ This repo contains my code and trained weights for a Deep Reinforcement Learning
 
 The pipeline captures game frames, detects valid targets and uses PPO to learn the mouse movements required to move the crosshair towards them. On the community map *Aim Botz* it averages **93.6 ± 2.8 kills-per-minute (KPM) on stationary targets and 39.2 ± 1.7 KPM on moving targets**. In my tests, this was roughly 2x faster than the human players I compared it against (Master Guardian I - Distinguished Master Guardian rank).
 
+
+## Demo
+| | |
+|---------------------------|-------|
+| Stationary Targets | ![stationary](demos/stationary.gif) |
+| Moving Targets | ![moving](demos/moving.gif) |
+| | |
+---
+
 ## Motivation
 
 In operating systems, cursor movement is tracked in "Mouse Units", which correspond exactly to screen pixels when interacting with a flat 2D interface - web browsers, for example. In 3D games, however, the scene is rendered in three dimensions and then projected onto a 2D plane, with said projection being shaped by camera parameters such as horizontal/vertical FOV, focal distance, and aspect ratio (4:3, 16:9, 21:9, etc.). As a result, a target being 100 pixels away from the crosshair does not necessarily mean that moving the mouse by 100 units will place the crosshair on it. The mapping depends on the game's camera and input settings.
@@ -22,15 +31,6 @@ This is the main idea behind my Reinforcement Learning agent, using screen captu
 
 ## Disclaimer
 This project was built as a proof of concept for combining Reinforcement Learning and Computer Vision to teach an agent visual control in a real 3D game. All the experiments and benchmarks in this repo were performed in the Aim Botz training environment.
-
-## Demo
-| | |
-|---------------------------|-------|
-| Stationary Targets | ![stationary](demos/stationary.gif) |
-| Moving Targets | ![moving](demos/moving.gif) |
-| | |
----
-
 
 ## Key Features
 |  |  |
