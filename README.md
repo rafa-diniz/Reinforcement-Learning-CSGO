@@ -115,9 +115,9 @@ $$
     0,    & \text{if detection is not valid}
   \end{cases}
 }_{\text{Distance Penalty}}
-+
+;+;
 \underbrace{2.0 \cdot (\text{Number of Kills})}_{\text{Kill Bonus}}
-+
+;+;
 \underbrace{
   \begin{cases}
     -0.6,             & \text{if }abs(\text{Current Y}) > 0.85 \\ 
