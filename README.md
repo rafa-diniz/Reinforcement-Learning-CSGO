@@ -7,6 +7,12 @@ This repo contains my code and trained weights for a Reinforcement Learning agen
 
 The pipeline captures game frames, detects valid targets and uses PPO to learn the mouse movements required to move the crosshair towards them. On the community map *Aim Botz* it averages 93.6 ± 2.8 kills-per-minute (KPM) on stationary targets and 39.2 ± 1.7 KPM on moving targets. In my tests, this was roughly 2x faster than the human players I compared it against (Master Guardian I - Distinguished Master Guardian rank).
 
+## Disclaimer
+
+This project was developed and evaluated exclusively in the legacy version of Counter-Strike: Global Offensive (CS), using local matches against bots in a controlled environment.
+
+It was not developed for Counter-Strike 2 and was never tested or used in public matchmaking or against human players. Legacy CS was intentionally chosen to keep all experiments isolated to a bot-only environment and outside the current public matchmaking ecosystem.
+
 ## Demo
 <table>
   <tr>
