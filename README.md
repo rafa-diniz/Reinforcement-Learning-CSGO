@@ -107,7 +107,7 @@ The reward function contains three components:
 The full reward function is: 
 
 $$
-\mathcal{R} =
+R =
 \underbrace{
   \begin{cases}
     -\mu, & \text{if detection is valid and target was not lost by tracker} \\
