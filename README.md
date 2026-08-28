@@ -9,9 +9,9 @@ The pipeline captures game frames, detects valid targets and uses PPO to learn t
 
 ## Disclaimer
 
-This project was developed and evaluated exclusively in the legacy version of Counter-Strike: Global Offensive (CS), using local matches against bots in a controlled environment.
+This project was developed and evaluated exclusively in the legacy version of Counter-Strike: Global Offensive, using local matches against bots in a controlled environment.
 
-It was not developed for Counter-Strike 2 and was never tested or used in public matchmaking or against human players. Legacy CS was intentionally chosen to keep all experiments isolated to a bot-only environment and outside the current public matchmaking ecosystem.
+The legacy version of CSGO was intentionally chosen to keep all experiments isolated to a bot-only environment and outside the current public matchmaking ecosystem.
 
 ## Demo
 <table>
